@@ -14,8 +14,11 @@
       --soft: #a8aaa3;
       --line: #e4e4df;
       --line-strong: #d6d7d0;
-      --accent: #16a367;
-      --accent-soft: #e1f5ea;
+      --accent: #8051d5;
+      --accent-hover: #6f42c1;
+      --accent-ink: #57309b;
+      --accent-soft: #f0eafb;
+      --accent-line: #d6c6f2;
       --shadow: 0 20px 70px rgba(28, 30, 25, .08);
       color-scheme: light;
     }
@@ -50,7 +53,7 @@
       border: 1px solid var(--line);
       border-radius: 12px;
       background:
-        radial-gradient(circle at 50% 27%, rgba(42, 118, 82, .05), transparent 20%),
+        radial-gradient(circle at 50% 27%, rgba(128, 81, 213, .05), transparent 20%),
         var(--surface);
       position: relative;
       overflow: hidden;
@@ -164,8 +167,12 @@
       font-weight: 700;
       transition: transform .14s ease, border-color .14s ease, background .14s ease;
     }
-    .choose:hover { border-color: var(--line-strong); background: #fafafa; }
+    .choose:hover { border-color: var(--accent-line); background: var(--accent-soft); }
     .choose:active { transform: translateY(1px); }
+    button:focus-visible, a:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
 
     .bar {
       display: flex;
@@ -194,8 +201,8 @@
     }
     .chip.on {
       background: var(--accent-soft);
-      color: #116c49;
-      border-color: #bfe5cf;
+      color: var(--accent-ink);
+      border-color: var(--accent-line);
     }
     .run {
       width: 38px;
@@ -208,7 +215,7 @@
       font-weight: 800;
       transition: transform .18s ease, background .18s ease;
     }
-    .run:hover { transform: translateY(-2px); background: #128b59; }
+    .run:hover { transform: translateY(-2px); background: var(--accent-hover); }
     .run:disabled { background: #a8aaa3; cursor: default; transform: none; }
 
     .status {
@@ -293,10 +300,10 @@
     .toast-link {
       display: inline-flex;
       margin-top: 10px;
-      border: 1px solid #bfe5cf;
+      border: 1px solid var(--accent-line);
       border-radius: 999px;
       padding: 6px 10px;
-      color: #116c49;
+      color: var(--accent-ink);
       background: var(--accent-soft);
       font-size: 12px;
       font-weight: 750;
@@ -305,8 +312,8 @@
     }
     .toast-link:hover {
       transform: translateY(-1px);
-      background: #d5f2e3;
-      border-color: #a7dbbd;
+      background: #e9dff9;
+      border-color: #c5adee;
     }
 
     @keyframes enter {

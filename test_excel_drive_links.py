@@ -118,8 +118,9 @@ def test_nearby_screenshots_are_ignored_when_ad_screenshot_column_exists():
 
         assert uploaded == 1
         assert missing == []
-        assert result.active["D2"].value == "ad.png"
-        assert result.active["D2"].hyperlink.target == "dry-run://ad.png"
+        assert result.active["B2"].value == "ad.png"
+        assert result.active["B2"].hyperlink.target == "dry-run://ad.png"
+        assert result.active["D1"].value is None
 
 
 def test_progress_reports_global_percentage():

@@ -176,7 +176,7 @@ def convert(input_path, output_path, upload, image_root=None, progress=None):
     total_uploads = count_uploads(workbook, input_path, image_root)
     for sheet in workbook.worksheets:
         images = list(getattr(sheet, "_images", []))
-        links_by_row = {}
+        links_by_cell = {}
         pending = []
         image_columns = local_image_columns(sheet)
 
@@ -186,29 +186,30 @@ def convert(input_path, output_path, upload, image_root=None, progress=None):
                     continue
                 for path in cell_image_paths(cell.value, input_path.parent, image_root):
                     if path.exists():
-                        pending.append((cell.row, path.name, lambda p=path: p.read_bytes()))
+                        pending.append((cell.row, cell.column if image_columns else None, path.name, lambda p=path: p.read_bytes()))
                     else:
                         missing_paths.append(str(path))
 
         if not images and not pending:
             continue
 
-        link_col = max(sheet.max_column, *(image_col(image) for image in images)) + 1 if images else sheet.max_column + 1
-        sheet.cell(row=1, column=link_col).value = "Image Link"
+        link_col = min(image_columns) if image_columns else (max(sheet.max_column, *(image_col(image) for image in images)) + 1 if images else sheet.max_column + 1)
+        if not image_columns:
+            sheet.cell(row=1, column=link_col).value = "Image Link"
 
         for index, image in enumerate(images, start=1):
             row = image_row(image)
             name = f"{Path(input_path).stem}-{sheet.title}-r{row}-{index}{image_ext(image)}"
-            pending.append((row, name, lambda img=image: image_bytes(img)))
+            pending.append((row, link_col, name, lambda img=image: image_bytes(img)))
 
-        for row, name, read_data in pending:
-            links_by_row.setdefault(row, []).append((upload(read_data(), name), name))
+        for row, column, name, read_data in pending:
+            links_by_cell.setdefault((row, column or link_col), []).append((upload(read_data(), name), name))
             uploaded_count += 1
             if progress:
                 progress(uploaded_count, total_uploads, name)
 
-        for row, links in links_by_row.items():
-            write_link_cell(sheet.cell(row=row, column=link_col), links)
+        for (row, column), links in links_by_cell.items():
+            write_link_cell(sheet.cell(row=row, column=column), links)
 
     workbook.save(output_path)
     return uploaded_count, missing_paths
