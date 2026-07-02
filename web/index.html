@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Efficient Audit Uploader</title>
+  <style>
+    :root {
+      --bg: #f4f4f1;
+      --surface: #fbfbfa;
+      --card: #ffffff;
+      --ink: #252623;
+      --muted: #74766f;
+      --soft: #a8aaa3;
+      --line: #e4e4df;
+      --line-strong: #d6d7d0;
+      --accent: #16a367;
+      --accent-soft: #e1f5ea;
+      --shadow: 0 20px 70px rgba(28, 30, 25, .08);
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+
+    .app {
+      min-height: 100vh;
+      width: min(100vw, 550px);
+      margin: 0 auto;
+    }
+
+    .main {
+      padding: 8px 10px 18px;
+      position: relative;
+    }
+
+    .workspace {
+      height: calc(100vh - 26px);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background:
+        radial-gradient(circle at 50% 27%, rgba(42, 118, 82, .05), transparent 20%),
+        var(--surface);
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .watermark {
+      position: absolute;
+      top: 17%;
+      left: 50%;
+      width: 220px;
+      height: 220px;
+      transform: translateX(-50%);
+      opacity: .45;
+      pointer-events: none;
+      animation: drift 8s ease-in-out infinite;
+    }
+    .watermark::before {
+      content: "";
+      position: absolute;
+      inset: 12px;
+      border: 1px solid #e9e9e4;
+      border-radius: 50%;
+      clip-path: polygon(20% 0, 100% 0, 100% 100%, 0 100%, 0 35%);
+    }
+    .slash {
+      position: absolute;
+      width: 96px;
+      height: 13px;
+      border-radius: 999px;
+      background: #eeeeea;
+      transform: rotate(45deg);
+    }
+    .slash:nth-child(1) { top: 108px; left: 46px; }
+    .slash:nth-child(2) { top: 82px; left: 76px; }
+    .slash:nth-child(3) { top: 56px; left: 108px; }
+
+    .center {
+      width: calc(100% - 34px);
+      margin: 78px auto 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .title {
+      text-align: center;
+      margin-bottom: 26px;
+      animation: enter .5s ease both;
+    }
+    .title h1 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: -.04em;
+      line-height: 1.05;
+    }
+    .title p {
+      margin: 10px auto 0;
+      color: var(--muted);
+      font-size: 14px;
+      max-width: 52ch;
+    }
+
+    .composer {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .86);
+      box-shadow: 0 16px 50px rgba(40, 42, 35, .08);
+      overflow: hidden;
+      animation: enter .6s .05s ease both;
+    }
+
+    .drop {
+      padding: 20px 22px 8px;
+      min-height: 80px;
+    }
+    .drop-title {
+      color: var(--soft);
+      font-size: 18px;
+      font-weight: 650;
+      letter-spacing: -.02em;
+    }
+
+    .rows { padding: 0 12px 12px; display: grid; gap: 6px; }
+    .row {
+      display: grid;
+      grid-template-columns: 128px 1fr 82px;
+      align-items: center;
+      gap: 10px;
+      min-height: 40px;
+      padding: 0 8px;
+      border-radius: 8px;
+      transition: background .16s ease, transform .16s ease;
+    }
+    .row:hover { background: #f7f7f4; transform: translateY(-1px); }
+    .label { font-size: 12px; font-weight: 750; color: var(--ink); }
+    .value {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .value.ready { color: var(--ink); }
+    .choose {
+      height: 29px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 700;
+      transition: transform .14s ease, border-color .14s ease, background .14s ease;
+    }
+    .choose:hover { border-color: var(--line-strong); background: #fafafa; }
+    .choose:active { transform: translateY(1px); }
+
+    .bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid var(--line);
+      padding: 10px 12px;
+      gap: 14px;
+    }
+    .chips {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .chip {
+      border: 1px solid var(--line);
+      background: #fafaf8;
+      border-radius: 999px;
+      padding: 6px 10px;
+      color: #62645d;
+      font-size: 12px;
+      font-weight: 700;
+      user-select: none;
+      cursor: pointer;
+    }
+    .chip.on {
+      background: var(--accent-soft);
+      color: #116c49;
+      border-color: #bfe5cf;
+    }
+    .run {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 0;
+      background: var(--accent);
+      color: white;
+      font-size: 16px;
+      font-weight: 800;
+      transition: transform .18s ease, background .18s ease;
+    }
+    .run:hover { transform: translateY(-2px); background: #128b59; }
+    .run:disabled { background: #a8aaa3; cursor: default; transform: none; }
+
+    .status {
+      position: absolute;
+      right: 20px;
+      bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 650;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--soft);
+    }
+    .dot.run { background: var(--accent); animation: pulse 1s ease infinite; }
+    .dot.fail { background: #c54f45; }
+
+    .toast {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      width: min(340px, calc(100vw - 44px));
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .96);
+      box-shadow: 0 14px 40px rgba(40, 42, 35, .12);
+      padding: 14px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-8px);
+      transition: opacity .18s ease, transform .18s ease, box-shadow .18s ease;
+      z-index: 3;
+    }
+    .toast:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 50px rgba(40, 42, 35, .16);
+    }
+    .toast.show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .toast.show:hover {
+      transform: translateY(-2px);
+    }
+    .toast-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 24px;
+      height: 24px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: #fff;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1;
+      transition: transform .14s ease, border-color .14s ease, color .14s ease;
+    }
+    .toast-close:hover {
+      transform: rotate(90deg);
+      border-color: var(--line-strong);
+      color: var(--ink);
+    }
+    .toast.fail { border-color: #efc9c5; }
+    .toast-title {
+      margin: 0 28px 6px 0;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .toast-body {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .toast-link {
+      display: inline-flex;
+      margin-top: 10px;
+      border: 1px solid #bfe5cf;
+      border-radius: 999px;
+      padding: 6px 10px;
+      color: #116c49;
+      background: var(--accent-soft);
+      font-size: 12px;
+      font-weight: 750;
+      text-decoration: none;
+      transition: transform .14s ease, background .14s ease, border-color .14s ease;
+    }
+    .toast-link:hover {
+      transform: translateY(-1px);
+      background: #d5f2e3;
+      border-color: #a7dbbd;
+    }
+
+    @keyframes enter {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes drift {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      50% { transform: translateX(-50%) translateY(6px); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: .55; transform: scale(.9); }
+      50% { opacity: 1; transform: scale(1.25); }
+    }
+
+    @media (max-width: 720px) {
+      body { overflow: auto; }
+      .main { padding: 8px; }
+      .workspace {
+        min-height: calc(100vh - 16px);
+        height: auto;
+        overflow: visible;
+      }
+      .watermark {
+        top: 92px;
+        width: 170px;
+        height: 170px;
+        opacity: .32;
+      }
+      .watermark::before { inset: 8px; }
+      .slash {
+        width: 72px;
+        height: 10px;
+      }
+      .slash:nth-child(1) { top: 84px; left: 36px; }
+      .slash:nth-child(2) { top: 64px; left: 58px; }
+      .slash:nth-child(3) { top: 44px; left: 82px; }
+      .center {
+        width: calc(100% - 34px);
+        margin-top: 78px;
+        padding-bottom: 70px;
+      }
+      .title {
+        margin-bottom: 18px;
+      }
+      .title h1 {
+        font-size: 24px;
+        line-height: 1.06;
+      }
+      .title p {
+        font-size: 14px;
+        line-height: 1.35;
+        max-width: 28ch;
+      }
+      .drop {
+        min-height: 58px;
+        padding: 16px 16px 2px;
+      }
+      .drop-title {
+        font-size: 17px;
+      }
+      .rows {
+        gap: 8px;
+        padding: 0 10px 12px;
+      }
+      .row {
+        grid-template-columns: minmax(0, 1fr) 80px;
+        min-height: 60px;
+        gap: 6px 10px;
+        padding: 6px 8px;
+      }
+      .label { grid-column: 1 / -1; }
+      .value {
+        font-size: 13px;
+        line-height: 1.25;
+      }
+      .choose {
+        height: 34px;
+        font-size: 13px;
+      }
+      .bar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 42px;
+        align-items: end;
+        padding: 12px 12px;
+      }
+      .chips {
+        gap: 7px;
+      }
+      .chip {
+        padding: 7px 10px;
+        font-size: 13px;
+      }
+      .run {
+        width: 42px;
+        height: 42px;
+      }
+      .status {
+        right: 18px;
+        bottom: 14px;
+        max-width: calc(100vw - 36px);
+        font-size: 13px;
+      }
+      .toast {
+        top: 14px;
+        right: 14px;
+        width: calc(100vw - 44px);
+      }
+    }
+
+    @media (max-width: 420px) {
+      .chip {
+        font-size: 12px;
+        padding: 7px 9px;
+      }
+      .title h1 { font-size: 23px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="main">
+      <div class="workspace">
+        <div class="watermark" aria-hidden="true">
+          <div class="slash"></div>
+          <div class="slash"></div>
+          <div class="slash"></div>
+        </div>
+
+        <section class="center">
+          <div class="title">
+            <h1>Upload workbook assets</h1>
+            <p>Choose the Excel file and screenshots folder. The app writes Drive links and can publish the result to Sheets.</p>
+          </div>
+
+          <div class="composer">
+            <div class="drop">
+              <div class="drop-title">Select files...</div>
+            </div>
+
+            <div class="rows">
+              <div class="row" data-action="credentials">
+                <div class="label">Credentials</div>
+                <div class="value" id="credentialsValue">Not selected</div>
+                <button class="choose">Choose</button>
+              </div>
+              <div class="row" data-action="excel">
+                <div class="label">Workbook</div>
+                <div class="value" id="excelValue">Not selected</div>
+                <button class="choose">Choose</button>
+              </div>
+              <div class="row" data-action="screenshots">
+                <div class="label">Screenshots</div>
+                <div class="value" id="screenshotsValue">Not selected</div>
+                <button class="choose">Choose</button>
+              </div>
+              <div class="row" data-action="output">
+                <div class="label">Output</div>
+                <div class="value" id="outputValue">Auto beside workbook</div>
+                <button class="choose">Rename</button>
+              </div>
+              <div class="row" data-action="folder">
+                <div class="label">Drive folder</div>
+                <div class="value ready" id="folderValue">My Drive</div>
+                <button class="choose">Set</button>
+              </div>
+            </div>
+
+            <div class="bar">
+              <div class="chips">
+                <button class="chip on" id="publicChip">Anyone with link</button>
+                <button class="chip on" id="sheetChip">Publish to Sheets</button>
+                <button class="chip" id="dryChip">Dry run</button>
+              </div>
+              <button class="run" id="runButton" title="Run upload">↑</button>
+            </div>
+          </div>
+        </section>
+
+        <aside class="toast" id="toast" aria-live="polite">
+          <button class="toast-close" id="toastClose" type="button" aria-label="Close notification">×</button>
+          <div class="toast-title" id="toastTitle"></div>
+          <p class="toast-body" id="toastBody"></p>
+          <a class="toast-link" id="toastLink" href="#" target="_blank" rel="noreferrer">Open Sheet</a>
+        </aside>
+        <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">Ready</span></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const state = {
+      credentials: "",
+      excel: "",
+      screenshots: "",
+      output: "",
+      folderId: "",
+      publicLinks: true,
+      uploadSheet: true,
+      dryRun: false,
+      running: false,
+      progress: 0,
+      progressMessage: ""
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    function shortPath(value) {
+      if (!value) return "Not selected";
+      const parts = value.split("/");
+      return parts.length > 1 ? `${parts.at(-2)}/${parts.at(-1)}` : value;
+    }
+
+    function paint() {
+      setValue("credentialsValue", state.credentials);
+      setValue("excelValue", state.excel);
+      setValue("screenshotsValue", state.screenshots);
+      setValue("outputValue", state.output, "Auto beside workbook");
+      $("folderValue").textContent = state.folderId || "My Drive";
+      $("folderValue").classList.toggle("ready", true);
+      $("publicChip").classList.toggle("on", state.publicLinks);
+      $("sheetChip").classList.toggle("on", state.uploadSheet);
+      $("dryChip").classList.toggle("on", state.dryRun);
+      $("runButton").disabled = state.running;
+      $("statusDot").className = `dot ${state.running ? "run" : ""}`;
+      $("statusText").textContent = state.running ? `${state.progress}% ${state.progressMessage}` : "Ready";
+    }
+
+    function setValue(id, value, fallback = "Not selected") {
+      const el = $(id);
+      el.textContent = value ? shortPath(value) : fallback;
+      el.classList.toggle("ready", Boolean(value));
+    }
+
+    async function action(name) {
+      if (name === "credentials") state.credentials = await pywebview.api.choose_credentials() || state.credentials;
+      if (name === "excel") {
+        const result = await pywebview.api.choose_excel();
+        if (result.path) {
+          state.excel = result.path;
+          state.output = result.output;
+        }
+      }
+      if (name === "screenshots") state.screenshots = await pywebview.api.choose_screenshots() || state.screenshots;
+      if (name === "output") state.output = await pywebview.api.choose_output(state.output) || state.output;
+      if (name === "folder") {
+        const value = prompt("Google Drive folder ID. Leave blank for My Drive.", state.folderId);
+        if (value !== null) state.folderId = value.trim();
+      }
+      if (name === "run") await runUpload();
+      paint();
+    }
+
+    async function runUpload() {
+      if (state.running) return;
+      state.running = true;
+      state.progress = 0;
+      state.progressMessage = "Starting";
+      $("statusDot").className = "dot run";
+      $("toast").classList.remove("show", "fail");
+      paint();
+
+      const result = await pywebview.api.run_upload(state);
+      state.running = false;
+      state.progress = result.ok ? 100 : state.progress;
+      $("statusDot").className = result.ok ? "dot" : "dot fail";
+      $("statusText").textContent = result.ok ? "Finished" : "Failed";
+      showToast(result);
+      paint();
+    }
+
+    function showToast(result) {
+      $("toast").classList.toggle("fail", !result.ok);
+      $("toastTitle").textContent = result.ok ? "Upload complete" : "Upload failed";
+      $("toastBody").textContent = result.ok
+        ? `${result.workbookName || "Workbook"} uploaded with ${result.uploaded || 0} image links.`
+        : result.error;
+      if (result.ok && result.sheetUrl) {
+        $("toastLink").href = result.sheetUrl;
+        $("toastLink").style.display = "inline-flex";
+      } else {
+        $("toastLink").style.display = "none";
+      }
+      $("toast").classList.add("show");
+    }
+
+    function closeToast() {
+      $("toast").classList.remove("show");
+    }
+
+    window.uploadProgress = ({ percent, message }) => {
+      state.progress = Math.max(state.progress, Math.min(100, percent || 0));
+      state.progressMessage = message || "Uploading";
+      paint();
+    };
+
+    document.addEventListener("click", (event) => {
+      const actionEl = event.target.closest("[data-action]");
+      if (actionEl) action(actionEl.dataset.action);
+    });
+
+    $("publicChip").addEventListener("click", () => { state.publicLinks = !state.publicLinks; paint(); });
+    $("sheetChip").addEventListener("click", () => { state.uploadSheet = !state.uploadSheet; paint(); });
+    $("dryChip").addEventListener("click", () => { state.dryRun = !state.dryRun; paint(); });
+    $("runButton").addEventListener("click", () => action("run"));
+    $("toastClose").addEventListener("click", closeToast);
+    $("toastLink").addEventListener("click", closeToast);
+
+    window.addEventListener("pywebviewready", async () => {
+      const initial = await pywebview.api.initial_state();
+      state.credentials = initial.credentials || "";
+      paint();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+name: Build desktop releases
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            package: Efficient-Audit-Uploader-macOS-arm64
+          - os: macos-15-intel
+            package: Efficient-Audit-Uploader-macOS-x64
+          - os: windows-latest
+            package: Efficient-Audit-Uploader-Windows-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python test_excel_drive_links.py
+      - run: python build.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.package }}
+          path: dist/${{ matrix.package }}.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - run: gh release create "$GITHUB_REF_NAME" artifacts/*.zip --generate-notes --verify-tag
+        env:
+          GH_TOKEN: ${{ github.token }}
