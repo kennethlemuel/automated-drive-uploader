@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/ESLogo.png" alt="Efficient Audit Uploader logo" width="160">
+</p>
+
 # Efficient Audit Uploader
 
 Desktop app that uploads audit screenshots to Google Drive, writes their links into an `.xlsx` workbook, and can publish the finished workbook to Google Sheets.
