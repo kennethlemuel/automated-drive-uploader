@@ -123,6 +123,35 @@ def test_nearby_screenshots_are_ignored_when_ad_screenshot_column_exists():
         assert result.active["D1"].value is None
 
 
+def test_ad_screenshot_path_wins_over_embedded_thumbnail():
+    with TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        screenshot_dir = tmp / "Analytics Audit Screenshots"
+        screenshot_dir.mkdir()
+        ad_png = screenshot_dir / "ad.png"
+        source = tmp / "source.xlsx"
+        output = tmp / "output.xlsx"
+
+        PILImage.new("RGB", (8, 8), "green").save(ad_png)
+
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet["A1"] = "AD Screenshot"
+        sheet["A2"] = "Analytics Audit Screenshots/ad.png"
+        sheet["A2"].hyperlink = "Analytics%20Audit%20Screenshots/ad.png"
+        sheet.add_image(Image(ad_png), "A2")
+        workbook.save(source)
+
+        uploaded, missing = convert(source, output, lambda _data, name: f"dry-run://{name}")
+        result = load_workbook(output)
+
+        assert uploaded == 1
+        assert missing == []
+        assert result.active["A2"].value == "ad.png"
+        assert result.active["A2"].hyperlink.target == "dry-run://ad.png"
+        assert len(result.active._images) == 0
+
+
 def test_progress_reports_global_percentage():
     with TemporaryDirectory() as tmp:
         tmp = Path(tmp)
@@ -154,4 +183,5 @@ if __name__ == "__main__":
     test_local_image_path_gets_row_link()
     test_local_image_path_can_use_selected_screenshot_folder()
     test_nearby_screenshots_are_ignored_when_ad_screenshot_column_exists()
+    test_ad_screenshot_path_wins_over_embedded_thumbnail()
     test_progress_reports_global_percentage()

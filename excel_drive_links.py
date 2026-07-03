@@ -75,6 +75,7 @@ def local_image_columns(sheet):
 
 
 def write_link_cell(cell, links):
+    cell.hyperlink = None
     if len(links) == 1:
         url, label = links[0]
         cell.value = label
@@ -93,7 +94,8 @@ def count_uploads(workbook, input_path, image_root=None):
                 if image_columns and cell.column not in image_columns:
                     continue
                 total += sum(path.exists() for path in cell_image_paths(cell.value, input_path.parent, image_root))
-        total += len(getattr(sheet, "_images", []))
+        if not image_columns:
+            total += len(getattr(sheet, "_images", []))
     return total
 
 
@@ -197,10 +199,13 @@ def convert(input_path, output_path, upload, image_root=None, progress=None):
         if not image_columns:
             sheet.cell(row=1, column=link_col).value = "Image Link"
 
-        for index, image in enumerate(images, start=1):
-            row = image_row(image)
-            name = f"{Path(input_path).stem}-{sheet.title}-r{row}-{index}{image_ext(image)}"
-            pending.append((row, link_col, name, lambda img=image: image_bytes(img)))
+        if image_columns:
+            sheet._images = [image for image in images if image_col(image) not in image_columns]
+        else:
+            for index, image in enumerate(images, start=1):
+                row = image_row(image)
+                name = f"{Path(input_path).stem}-{sheet.title}-r{row}-{index}{image_ext(image)}"
+                pending.append((row, link_col, name, lambda img=image: image_bytes(img)))
 
         for row, column, name, read_data in pending:
             links_by_cell.setdefault((row, column or link_col), []).append((upload(read_data(), name), name))
