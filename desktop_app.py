@@ -70,25 +70,20 @@ class Api:
         image_root = payload.get("screenshots") or None
         folder_id = payload.get("folderId") or None
         public = bool(payload.get("publicLinks"))
-        dry_run = bool(payload.get("dryRun"))
         upload_sheet = bool(payload.get("uploadSheet"))
 
         if not input_path.exists() or input_path.suffix.lower() != ".xlsx":
             return {"ok": False, "error": "Choose a valid .xlsx workbook."}
-        if not dry_run and not credentials.exists():
-            return {"ok": False, "error": "Choose credentials.json or enable dry run."}
+        if not credentials.exists():
+            return {"ok": False, "error": "Choose credentials.json."}
 
         logs = [f"Input: {input_path}", f"Output: {output_path}"]
         try:
             self.progress(3, "Preparing upload")
-            if dry_run:
-                upload = lambda _data, name: f"dry-run://{name}"
-                service = None
-            else:
-                logs.append("Authorizing Google Drive...")
-                self.progress(8, "Authorizing Google Drive")
-                service = auth_drive(credentials, DATA_DIR / ".google-drive-token.json")
-                upload = lambda data, name: upload_image(service, data, name, folder_id, public)
+            logs.append("Authorizing Google Drive...")
+            self.progress(8, "Authorizing Google Drive")
+            service = auth_drive(credentials, DATA_DIR / ".google-drive-token.json")
+            upload = lambda data, name: upload_image(service, data, name, folder_id, public)
 
             def on_progress(done, total, name):
                 percent = 10 + int((done / max(total, 1)) * 80)
@@ -97,7 +92,7 @@ class Api:
             uploaded, missing = convert(input_path, output_path, upload, image_root, on_progress)
             logs.append(f"Image uploads: {uploaded}")
             sheet_url = ""
-            if upload_sheet and not dry_run:
+            if upload_sheet:
                 logs.append("Uploading finished workbook as Google Sheet...")
                 self.progress(94, "Publishing Google Sheet")
                 sheet_url = upload_workbook(service, output_path, folder_id, public, as_sheets=True)

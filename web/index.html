@@ -486,7 +486,6 @@
               <div class="chips">
                 <button class="chip on" id="publicChip">Anyone with link</button>
                 <button class="chip on" id="sheetChip">Publish to Sheets</button>
-                <button class="chip" id="dryChip">Dry run</button>
               </div>
               <button class="run" id="runButton" title="Run upload">↑</button>
             </div>
@@ -513,7 +512,6 @@
       folderId: "",
       publicLinks: true,
       uploadSheet: true,
-      dryRun: false,
       running: false,
       progress: 0,
       progressMessage: ""
@@ -536,7 +534,6 @@
       $("folderValue").classList.toggle("ready", true);
       $("publicChip").classList.toggle("on", state.publicLinks);
       $("sheetChip").classList.toggle("on", state.uploadSheet);
-      $("dryChip").classList.toggle("on", state.dryRun);
       $("runButton").disabled = state.running;
       $("statusDot").className = `dot ${state.running ? "run" : ""}`;
       $("statusText").textContent = state.running ? `${state.progress}% ${state.progressMessage}` : "Ready";
@@ -617,7 +614,6 @@
 
     $("publicChip").addEventListener("click", () => { state.publicLinks = !state.publicLinks; paint(); });
     $("sheetChip").addEventListener("click", () => { state.uploadSheet = !state.uploadSheet; paint(); });
-    $("dryChip").addEventListener("click", () => { state.dryRun = !state.dryRun; paint(); });
     $("runButton").addEventListener("click", () => action("run"));
     $("toastClose").addEventListener("click", closeToast);
     $("toastLink").addEventListener("click", closeToast);
