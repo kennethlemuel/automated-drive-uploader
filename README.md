@@ -58,35 +58,4 @@ Credentials and OAuth tokens stay on the user's computer and are never bundled i
 
 The original workbook is unchanged. The app writes a new `-with-links.xlsx` file unless the output is renamed.
 
-## For developers
 
-Coworkers who downloaded the app can skip this section. These steps are only for people changing or rebuilding the app.
-
-Python 3.11 is used for release builds.
-
-```sh
-python -m pip install -r requirements-dev.txt
-python test_excel_drive_links.py
-python desktop_app.py
-```
-
-Build the native package for the current operating system:
-
-```sh
-python build.py
-```
-
-The result is written to `dist/`.
-
-## Publish a release
-
-Push a version tag to GitHub:
-
-```sh
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-GitHub Actions builds the three platform packages and attaches them to the new GitHub Release. The workflow can also be run manually to create downloadable Actions artifacts without publishing a release.
-
-These opening warnings are acceptable for internal testing. They can be removed later by registering the app with Apple and Microsoft.
